@@ -1,0 +1,11 @@
+# Minimal dependencies. Install into a plain virtual environment:
+#   python3 -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements.txt
+#
+# Project 2 is pure NumPy — no deep-learning framework needed.
+numpy
+pandas
+scikit-learn      # datasets, evaluation metrics, and the reference K-means baseline
+matplotlib
+pyyaml
+pytest

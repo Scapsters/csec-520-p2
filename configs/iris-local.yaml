@@ -1,0 +1,24 @@
+seed: 42
+data:
+  source: csv
+  csv_path: data/iris/iris.csv
+  target: species
+  drop_columns: []
+  subsample: null
+  standardize: true
+kmeans:
+  implementation: sklearn
+  k: 3
+  init: kmeans++
+  n_init: 10
+  max_iter: 300
+  tol: 0.0001
+  distance: euclidean
+  mahalanobis_diag: null
+selection:
+  silhouette_geometry: euclidean  # common space for k selection; or configured
+  k_min: 2
+  k_max: 8
+compare_to_reference: true
+output:
+  dir: results/iris-local

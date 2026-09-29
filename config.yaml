@@ -1,0 +1,30 @@
+# Experiment configuration — edit this, not the code, to change a run.
+seed: 42
+
+data:
+  source: iris               # "iris" (default, no download) | "csv"
+  csv_path: data/UNSW_NB15_training-set.csv
+  target: attack_cat         # label column when source == csv
+  drop_columns: [id, label]  # non-feature columns to drop from the CSV
+  subsample: 4000            # cap rows (from-scratch K-means is O(n·k·d) per pass); null = all
+  standardize: true          # z-score features — important for distance-based methods
+
+kmeans:
+  implementation: sklearn    # "sklearn" = provided baseline | "scratch" = YOUR implementation
+  k: 3
+  init: kmeans++             # "kmeans++" | "random"
+  n_init: 10                 # random restarts; keep the lowest inertia
+  max_iter: 300
+  tol: 1.0e-4
+  distance: euclidean        # "euclidean" | "mahalanobis"  (mahalanobis = scratch only)
+  mahalanobis_diag: null     # positive diagonal C, e.g. [2.0, 1.0, 0.5, 1.0]; null = all ones
+
+selection:                   # k-sweep for the elbow / silhouette figure
+  silhouette_geometry: euclidean  # common space for k selection; or configured
+  k_min: 2
+  k_max: 8
+
+compare_to_reference: true   # when implementation=scratch, also run sklearn and report agreement
+
+output:
+  dir: results

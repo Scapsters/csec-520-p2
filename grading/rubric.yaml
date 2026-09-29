@@ -1,0 +1,65 @@
+# Machine-readable grading rubric for CSEC 520/620 — Project 2 (K-means).
+# Weights sum to 100 and match the Project 2 handout.
+# `check` = auto (verified by grade.py), agent (LLM judgment),
+# or both (auto evidence + agent judgment).
+version: 1
+project: "Project 2 — K-means Clustering (from scratch)"
+total_points: 100
+
+criteria:
+  - id: reproducibility
+    title: One-command reproducibility
+    max_points: 20
+    check: both
+    guidance: >
+      `make reproduce` (or `python -m src.reproduce --config config.yaml`) runs from a
+      clean environment and writes results/metrics.json plus figures, with no manual
+      intervention. See auto checks: reproduce_runs, metrics_present, comparison_complete.
+
+  - id: scratch_correctness
+    title: From-scratch K-means correctness
+    max_points: 35
+    check: both
+    guidance: >
+      The student genuinely implemented Lloyd's algorithm in KMeansScratch
+      (initialization, assignment, centroid update, convergence, restarts) — NOT a
+      library call. config.yaml must set kmeans.implementation: scratch. Clustering
+      quality should be close to the reference (inertia within ~10%, high ARI).
+      Empty-cluster handling should be present and explained.
+      See auto checks: scratch_implemented, no_library_kmeans_in_scratch,
+      reference_agreement, tests.
+
+  - id: evaluation
+    title: Evaluation (clustering + metrics)
+    max_points: 25
+    check: both
+    guidance: >
+      Sound k-selection evidence (elbow and/or silhouette). Valid cluster->class
+      evaluation: majority-vote mapping, confusion matrix, accuracy/precision/recall/F1
+      and/or homogeneity/completeness/V-measure/silhouette. Labels may support the documented class-balanced sampling design and
+      evaluation, but never be input features to clustering.
+      See auto checks: metrics_present, label_leakage_scan.
+
+  - id: discussion
+    title: Discussion — Euclidean vs. Mahalanobis
+    max_points: 10
+    check: agent
+    guidance: >
+      Implements the simplified (positive-diagonal) Mahalanobis distance, declares a primary criterion before weight experiments, seeks improvement,
+      and explains results/tradeoffs in terms of feature scale/variance. Hold
+      sample, k, seed and restart budget fixed. Do not require every metric to improve.
+      Evidence-based comparison, not just a table. Note that inertia is not comparable
+      across different metrics — a good answer compares label-based or silhouette
+      evidence instead. See auto check: mahalanobis_implemented.
+
+  - id: code_quality
+    title: Code quality & repo hygiene
+    max_points: 10
+    check: both
+    guidance: >
+      Readable, organized, config-driven (no hard-coded magic numbers), vectorized
+      where reasonable, no dead code, passes lint. Data and results are git-ignored,
+      not committed. SUBMISSION.md filled in.
+
+# 620 (graduate) students: hold `discussion` and `evaluation` to a higher bar —
+# deeper analysis, and results on the real security dataset (UNSW-NB15), not just Iris.
