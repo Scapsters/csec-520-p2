@@ -112,12 +112,24 @@ class KMeansScratch:
 
         Use ``rng`` (a numpy Generator) for every random draw so runs are
         reproducible. ``self._sqdist`` gives you the distances you need.
-
-        TODO(student): implement this.
         """
-        raise NotImplementedError(
-            "Implement _init_centroids in src/kmeans.py (Project 2, Task 1)."
-        )
+        
+        num_data_points = X.shape[0]
+        if self.init == "random":
+            idx = rng.choice(num_data_points, size=self.k, replace=False)
+            return X[idx]
+        
+        if self.init == "kmeans++":
+            centroids = [X[rng.integers(num_data_points)]]
+            for _ in range(self.k - 1):
+                
+                distances = self._sqdist(X, np.array(centroids)).min(axis=1)
+                centroid = X[rng.choice(num_data_points, p=distances / distances.sum())]
+                
+                centroids.append(centroid)
+            return np.array(centroids)
+        
+        raise ValueError(f"unknown init {self.init!r}")
 
     def _assign(self, X: np.ndarray, centroids: np.ndarray) -> np.ndarray:
         """Assignment step: index of the nearest centroid for each point.
