@@ -211,9 +211,9 @@ def build(cfg: dict):
     """Construct the clusterer selected by config.yaml."""
     kc = cfg["kmeans"]
     impl = kc.get("implementation", "sklearn")
-    common = dict(k=kc["k"], init=kc.get("init", "kmeans++"),
-                  n_init=kc.get("n_init", 10), max_iter=kc.get("max_iter", 300),
-                  tol=float(kc.get("tol", 1e-4)), seed=cfg["seed"])
+    common = {"k": kc["k"], "init": kc.get("init", "kmeans++"),
+                  "n_init": kc.get("n_init", 10), "max_iter": kc.get("max_iter", 300),
+                  "tol": float(kc.get("tol", 1e-4)), "seed": cfg["seed"]}
     if impl == "sklearn":
         if kc.get("distance", "euclidean") != "euclidean":
             raise ValueError("The sklearn baseline supports Euclidean only; use scratch for Mahalanobis.")
