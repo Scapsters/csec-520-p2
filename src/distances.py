@@ -46,12 +46,6 @@ def mahalanobis_sqdist(X: np.ndarray, C: np.ndarray, diag: np.ndarray) -> np.nda
     Returns
     -------
     (n, k) array of squared Mahalanobis distances.
-
-    TODO(student): implement this.
-      Hint: start from `euclidean_sqdist` above and weight the squared
-      per-feature differences by `diag` before summing over d.
-      Keep it vectorized — no Python loop over n.
     """
-    raise NotImplementedError(
-        "Implement mahalanobis_sqdist in src/distances.py (Project 2, Task 4)."
-    )
+    diff = X[:, None, :] - C[None, :, :]          # (n, k, d)
+    return np.einsum("nkd,nkd,d->nk", diff, diff, diag)
