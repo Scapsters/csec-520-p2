@@ -109,9 +109,6 @@ class KMeansScratch:
                        centroid with probability proportional to its squared
                        distance to the NEAREST already-chosen centroid. This
                        spreads centroids out and avoids bad local optima.
-
-        Use ``rng`` (a numpy Generator) for every random draw so runs are
-        reproducible. ``self._sqdist`` gives you the distances you need.
         """
         
         num_data_points = X.shape[0]
@@ -135,28 +132,23 @@ class KMeansScratch:
         """Assignment step: index of the nearest centroid for each point.
 
         Returns an int64 array of shape (n,) with values in [0, k).
-
-        TODO(student): implement this.
-          Hint: one call to ``self._sqdist`` plus an argmin along the right axis.
         """
-        raise NotImplementedError(
-            "Implement _assign in src/kmeans.py (Project 2, Task 1)."
-        )
+        
+        return self._sqdist(X, np.array(centroids)).argmin(axis=1).astype("int64")
 
     def _update(self, X: np.ndarray, labels: np.ndarray, centroids: np.ndarray) -> np.ndarray:
         """Update step: move each centroid to the mean of its assigned points.
 
-        Watch out for **empty clusters** — a centroid with no points assigned has
-        no mean. A common fix is to leave it where it is, or re-seed it at the
-        point furthest from its centroid. Say which you chose in your report.
-
         Returns the new (k, d) centroids.
-
-        TODO(student): implement this.
         """
-        raise NotImplementedError(
-            "Implement _update in src/kmeans.py (Project 2, Task 1)."
-        )
+        new_centroids = np.empty_like(centroids)
+        for j in range(self.k):
+            members = X[labels == j]
+            if len(members) == 0:
+                new_centroids[j] = centroids[j]  # empty cluster: keep it in place
+            else:
+                new_centroids[j] = members.mean(axis=0)
+        return new_centroids
 
     # -- the fit loop you implement ----------------------------------------
     def fit(self, X: np.ndarray) -> "KMeansScratch":
@@ -176,14 +168,37 @@ class KMeansScratch:
             self.centroids_, self.labels_, self.inertia_, self.n_iter_
 
         Return ``self``.
-
-        TODO(student): implement this.
-          Seed your generator with ``np.random.default_rng(self.seed)`` once,
-          outside the restart loop, so all restarts are reproducible but distinct.
         """
-        raise NotImplementedError(
-            "Implement fit in src/kmeans.py (Project 2, Task 1)."
+        rng = np.random.default_rng(self.seed)
+        best = (0, None, np.array([]), None)  # (inertia, centroids, labels, n_iter)
+
+        for _ in range(self.n_init):
+            centroids = self._init_centroids(X, rng)
+            
+            labels = np.array([])
+            for iteration in range(1, self.max_iter + 1):
+                labels = self._assign(X, centroids) # Assign data points to centroids
+                
+                new_centroids = self._update(X, labels, centroids) # Move centroids
+                
+                norm_of_all_shifts = np.linalg.norm(new_centroids - centroids)
+                
+                centroids = new_centroids
+                
+                if norm_of_all_shifts < self.tol:
+                    break
+
+            # Keep records
+            distances = self._sqdist(X, centroids)
+            inertia = float(distances[np.arange(X.shape[0]), labels].sum())
+            
+            if best is None or inertia < best[0]:
+                best = (inertia, centroids, labels, iteration)
+
+        self.inertia_, self.centroids_, self.labels_, self.n_iter_ = (
+            best[0], best[1], best[2].astype("int64"), best[3]
         )
+        return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Assign new points to the fitted centroids."""
