@@ -176,7 +176,6 @@ class KMeansScratch:
         for _ in range(self.n_init):
             centroids = self._init_centroids(X, rng)
             
-            labels = np.array([])
             for iteration in range(1, self.max_iter + 1):
                 labels = self._assign(X, centroids) # Assign data points to centroids
                 

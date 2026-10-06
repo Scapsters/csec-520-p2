@@ -37,8 +37,10 @@ and we argue that any within-geometry silhouette gain is tautological.
 \section{Problem \& Dataset}
 UNSW-NB15 (Moustafa \& Slay, 2015) is a dataset for classification of network
 intrusions. It contains a benign class and nine attack classes. The dataset has
-175{,}341 rows and 47 columns; after dropping non-feature and string columns we
-are left with an augmented feature matrix of 39 numeric features.
+175{,}341 rows and 45 columns; after dropping non-feature and string columns we
+are left with an augmented feature matrix of 39 numeric features. The class
+label (\texttt{attack\_cat}) is used only for the class-balanced sampling design
+and for evaluation; it is never used as a clustering feature.
 
 This codebase stratifies the data to produce a more workable dataset and
 standardizes the features. This becomes relevant in later discussions of the
@@ -138,8 +140,10 @@ The small difference between the two metrics can mean a couple of things:
 \end{itemize}
 We find that most features lie in relatively similar ranges, but a few are much
 larger; this likely drives the higher within-geometry silhouette under
-Mahalanobis. Euclidean distance is the primary criterion for the evaluation
-sections that follow.
+Mahalanobis. Euclidean distance is the primary criterion: we rank the two runs
+by mean silhouette in the common (standardized) Euclidean space, using V-measure
+and macro-F1 as label-based cross-checks, and we never compare inertia across
+the two distance metrics.
 
 \subsection{Agreement with sklearn}
 Compared against the scikit-learn clusters, our Euclidean ARI is $0.90$ and our
@@ -174,9 +178,12 @@ which would sensibly hurt performance.
   \includegraphics[width=\columnwidth]{../results/euclidean/confusion_matrix.png}
   \caption{Euclidean majority-vote confusion matrix.}
 \end{figure}
-The confusion matrix shows a heavy weighting toward just four classes:
-Backdoors, Generic, Fuzzer and Normal. Almost all other classes are heavily
-under-represented among the model's predictions. We look in Euclidean space,
+The confusion matrix shows predictions concentrated in four classes --- Backdoor
+(45.6\%), Fuzzers (33.2\%), Generic (10.5\%) and Normal (7.5\%), which together
+account for about 97\% of all predictions. A further three classes (DoS,
+Exploits, Worms) are predicted only sparsely, and the remaining three
+(Analysis, Reconnaissance, Shellcode) are never predicted at all. We look in
+Euclidean space,
 because, as noted, the results across the two metrics are extremely similar. For
 demonstration we show both cluster projections side by side; each displays the
 data on the two most significant principal components, so the full
