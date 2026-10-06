@@ -37,13 +37,18 @@ and we argue that any within-geometry silhouette gain is tautological.
 \section{Problem \& Dataset}
 UNSW-NB15 (Moustafa \& Slay, 2015) is a dataset for classification of network
 intrusions. It contains a benign class and nine attack classes. The dataset has
-175{,}341 rows and 45 columns; after dropping non-feature and string columns we
-are left with an augmented feature matrix of 39 numeric features. The class
+175{,}341 rows and 45 columns; we cluster on the 39 numeric feature columns,
+dropping the row identifier (\texttt{id}), the binary benign/attack
+\texttt{label}, the multi-class target \texttt{attack\_cat}, and three
+categorical string fields (\texttt{proto}, \texttt{service}, \texttt{state}).
+The class
 label (\texttt{attack\_cat}) is used only for the class-balanced sampling design
 and for evaluation; it is never used as a clustering feature.
 
-This codebase stratifies the data to produce a more workable dataset and
-standardizes the features. This becomes relevant in later discussions of the
+For tractability we draw a class-balanced subsample of 3{,}730 rows (400 per
+class, except 130 \textit{Worms}) and z-standardize the features; this does not
+preserve the natural traffic prevalence. This becomes relevant in later
+discussions of the
 simplified Mahalanobis distance, and means our evaluations must be read in the
 context of the sample size and the data-processing choices. In addition to the
 base project, we apply damping during the simplified Mahalanobis distance
