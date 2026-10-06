@@ -1,49 +1,250 @@
-\documentclass[11pt]{article}
-\usepackage[margin=1in]{geometry}
+% IEEE-format report for CSEC 520/620 Project 2 (K-means from scratch).
+%
+% Requires IEEEtran.cls (e.g. `tlmgr install ieeetran`, or grab it from
+% https://www.ctan.org/pkg/ieeetran). If you do not have IEEEtran, change
+%   \documentclass[conference]{IEEEtran}
+% to
+%   \documentclass[11pt]{article}
+% add  \usepackage[margin=1in]{geometry}  , and replace
+%   \begin{abstract} ... \end{abstract}
+% with a plain \textbf{Abstract} paragraph. The body uses only portable
+% commands, so it compiles under either class.
+\documentclass[conference]{IEEEtran}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
 \usepackage{hyperref}
-\title{CSEC 520/620 -- Project 2: K-means from scratch on UNSW-NB15}
-\author{Scott Happy (sdh8796)}
-\date{}
+
+\title{K-means from Scratch on UNSW-NB15: Euclidean vs.\ Damped-Diagonal Mahalanobis}
+\author{\IEEEauthorblockN{Scott Happy (sdh8796)}
+\IEEEauthorblockA{Rochester Institute of Technology}}
+
 \begin{document}
 \maketitle
 
-% NOTE: The full, current report is maintained in \texttt{report/REPORT.md}.
-% This \LaTeX{} source is a stub so the submission is in IEEE-style \TeX{}.
+\begin{abstract}
+We implement K-means (Lloyd's algorithm) from scratch and apply it to the
+UNSW-NB15 network-intrusion dataset, comparing a Euclidean objective against a
+damped-diagonal Mahalanobis objective. On a class-balanced, z-standardized
+subsample we select $k=10$ by elbow and silhouette, evaluate cluster--class
+agreement in-sample via majority-vote accuracy, precision, recall and F1 plus
+internal silhouette/V-measure, and compare both runs against a scikit-learn
+reference. The two geometries produce near-identical partitions; per-feature
+damping removes heavy-tailed influence without changing the label-based outcome,
+and we argue that any within-geometry silhouette gain is tautological.
+\end{abstract}
 
-\section{Problem \& dataset}
-K-means clustering of UNSW-NB15 network-traffic features; \texttt{attack\_cat}
-used only for the class-balanced sample and evaluation, never as a clustering
-feature.
+\section{Problem \& Dataset}
+UNSW-NB15 (Moustafa \& Slay, 2015) is a dataset for classification of network
+intrusions. It contains a benign class and nine attack classes. The dataset has
+175{,}341 rows and 47 columns; after dropping non-feature and string columns we
+are left with an augmented feature matrix of 39 numeric features.
+
+This codebase stratifies the data to produce a more workable dataset and
+standardizes the features. This becomes relevant in later discussions of the
+simplified Mahalanobis distance, and means our evaluations must be read in the
+context of the sample size and the data-processing choices. In addition to the
+base project, we apply damping during the simplified Mahalanobis distance
+calculation, discussed below. Results can be reproduced with the
+\texttt{make reproduce} command.
 
 \section{Implementation}
-Lloyd's algorithm implemented from scratch (\texttt{KMeansScratch}): k-means++
-seeding, nearest-centroid assignment, mean update (empty clusters kept in
-place), Frobenius-shift convergence at tol $10^{-4}$, 50 restarts keeping the
-lowest inertia. No library K-means call.
+\texttt{KMeansScratch} implements Lloyd's algorithm with no library K-means call
+(the \texttt{no\_library\_kmeans\_in\_scratch} check is clean):
+\begin{itemize}
+  \item \textbf{Initialization} (\texttt{\_init\_centroids}): \texttt{random}
+    draws $k$ distinct rows; \texttt{kmeans++} seeds the first centroid
+    uniformly, then each next centroid with probability proportional to its
+    squared distance to the \emph{nearest} chosen centroid, with a uniform
+    fallback if every point coincides with a chosen centroid (zero total
+    $D^2$). Both use the project distance so the seeding matches the objective.
+  \item \textbf{Assignment} (\texttt{\_assign}): each point to its nearest
+    centroid (argmin of the $(n,k)$ squared-distance matrix).
+  \item \textbf{Update} (\texttt{\_update}): each centroid moves to the mean of
+    its members. Empty clusters are kept in place (their old centroid is
+    retained) rather than re-seeded: this avoids consuming the RNG stream
+    mid-loop (which would break reproducibility of the restart budget) and did
+    not occur in our converged runs.
+  \item \textbf{Convergence} (\texttt{fit}): the loop stops when the Frobenius
+    (L2) norm of the centroid shift is $< \texttt{tol}$ ($10^{-4}$) or at
+    \texttt{max\_iter} (300). scikit-learn's \texttt{KMeans} also uses an
+    \emph{absolute} centroid-shift test, but it aggregates the shift as the sum
+    of squared per-centroid changes and compares that sum to \texttt{tol},
+    whereas we use the L2 norm of the full shift matrix. The two are closely
+    related but not identical, so the implementations can settle at marginally
+    different local optima (a small, explainable source of the reference
+    residual in Section~\ref{sec:eucl-mahal}). An absolute shift test is well
+    scaled here because the z-standardized features are unit-variance, so
+    centroid magnitudes are $O(1)$.
+  \item \textbf{Restarts}: $n_{\text{init}} = 50$ restarts; the restart with the
+    lowest inertia is kept (raised from 10 to 50 to improve reference agreement
+    on this high-dimensional, multi-modal dataset; see
+    Section~\ref{sec:eucl-mahal}).
+\end{itemize}
+The scikit-learn \texttt{KMeansReference} is used only as an oracle
+(\texttt{compare\_to\_reference: true}); the submission runs on
+\texttt{scratch}.
 
-\section{Choosing k}
-Silhouette (common Euclidean space) peaks at $k=10$ over a $2\ldots15$ sweep;
-elbow agrees; matches the 10 true classes. $k=10$ held fixed for both distances.
+\section{Choosing $k$}
+\subsection{Euclidean}
+Over $2 \le k \le 15$, $k=10$ was selected as optimal. The elbow test shows
+inertia following a relatively smooth curve with an inflection around
+$8 \le k \le 11$; the silhouette score shows a clear peak at $k=10$. Ten is a
+reasonable point under both tests, and it matches the ten true classes.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{../results/euclidean/k_selection.png}
+  \caption{Euclidean k-selection: inertia (elbow) and silhouette across $k$.}
+\end{figure}
+
+\subsection{Mahalanobis}
+The selected $k$ was also 10. The elbow curve is more jagged, with a sharp drop
+then flattening at $k=10$; the silhouette score again peaks at $k=10$.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{../results/mahalanobis/k_selection.png}
+  \caption{Mahalanobis k-selection: inertia (elbow) and silhouette across $k$.}
+\end{figure}
 
 \section{Evaluation}
-In-sample cluster agreement only: silhouette $\approx0.458$, V-measure
-$\approx0.28$, accuracy $\approx0.33$, macro-F1 $\approx0.25$. Labels are
-in-sample only; no held-out detection claim.
+To go from clusters to classifications we use majority vote: every point in a
+cluster is assigned the majority true class within that cluster.
 
-\section{Euclidean vs.\ Mahalanobis}
-Primary criterion: common-Euclidean silhouette (plus V-measure/macro-F1).
-Diagonal $C$ damps six heavy-tailed features (z-skew 1.2--27.9; stcpb, dtcpb,
-rate, sload, dload, sbytes). A k-means partition is compact in its own metric by
-construction, so the configured-geometry silhouette gain
-($0.458\!\to\!0.483$) is tautological and is not counted as a win. On the
-predeclared common-space silhouette the result is flat ($0.458\!\to\!0.457$) and
-label-based scores are unchanged; a sensitivity sweep over the damping range
-confirms the conclusion is not an artifact of one hand-picked diagonal.
-Reference agreement $\approx1.0$ (ARI 0.90/1.00) at $n_{\text{init}}=50$.
+Evaluations were performed only on the data used to fit the model, which limits
+what we can say about generalization. We nonetheless work with what we have, and
+additionally inspect principal-component projections to see how tightly the
+clusters appear. These visual checks should be taken with a grain of salt, but
+they support the quantitative results.
 
-\section{Conclusion \& limitations}
-Per-feature re-weighting is a valid geometric extension but does not resolve the
-heavy overlap among the ten attack families. Class-balanced sample, in-sample
-metrics only, 39 of 45 columns used (string fields dropped), simplified diagonal
-ignores covariance.
+\subsection{Similarity between metrics}
+In general the Euclidean and Mahalanobis distances behaved very similarly. As
+examples, both had accuracy exactly $0.3271$, and the silhouette scores (not
+adjusted for the distance metric used) were $0.4577$ for Euclidean and $0.4573$
+for Mahalanobis. When scored in each run's own (adjusted) geometry, the
+Mahalanobis silhouette rises to $0.4832$, consistent with the feature scaling
+discussed in Section~\ref{sec:eucl-mahal}.
+
+As a side note, the only notable difference between the two metrics is inertia,
+which should not be compared across distance metrics.
+
+The small difference between the two metrics can mean a couple of things:
+\begin{itemize}
+  \item The data is largely normalized, so metrics that account for the high
+    variance of certain dimensions have a small effect.
+  \item The data is noisy and the clusters happen to sit in shapes that do not
+    affect the partition. For example, a high-variance, unnormalized dimension
+    far from the other clusters would still cluster fine even if it carried a
+    large share of the inertia.
+\end{itemize}
+We find that most features lie in relatively similar ranges, but a few are much
+larger; this likely drives the higher within-geometry silhouette under
+Mahalanobis. Euclidean distance is the primary criterion for the evaluation
+sections that follow.
+
+\subsection{Agreement with sklearn}
+Compared against the scikit-learn clusters, our Euclidean ARI is $0.90$ and our
+damped-Mahalanobis ARI is $1.0$. Together these indicate a well-aligned
+reference for the Euclidean run and a clean implementation check for the
+Mahalanobis run. The ARI of $1.0$ for the Mahalanobis run is explained by the
+reference being fed the same geometry: scikit-learn's \texttt{KMeans} is
+Euclidean-only, so we pre-scale each feature by $\sqrt{c_f}$, which makes its
+Euclidean objective identical to our damped-diagonal-Mahalanobis objective; both
+then minimize the same function and land in the same optimum. The ARI of $0.90$
+for the Euclidean run, where the reference is a genuinely independent
+implementation on the same data, shows high agreement, with the small residual
+attributable to the different centroid-shift convergence test. This is a good
+indicator of the in-sample correctness of the implementation.
+
+\subsection{Metrics}
+The model's accuracy is far above random, which is good. When choosing between
+macro and micro precision/recall we consider our stratification: most classes
+are well balanced, with a few rare attack classes, so we report macro figures to
+weight the rare classes more heavily.
+
+Macro precision and recall are very similar across the two metrics; for
+Euclidean they are $0.3560$ and $0.3107$ respectively. Recall is the more
+important of the two here, because it indicates the clustering is
+under-sensitive. The associated macro F1 is $0.2522$, which is also quite low.
+The principal-component view below shows how heavily the feature groups overlap,
+which would sensibly hurt performance.
+
+\subsection{Class details}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{../results/euclidean/confusion_matrix.png}
+  \caption{Euclidean majority-vote confusion matrix.}
+\end{figure}
+The confusion matrix shows a heavy weighting toward just four classes:
+Backdoors, Generic, Fuzzer and Normal. Almost all other classes are heavily
+under-represented among the model's predictions. We look in Euclidean space,
+because, as noted, the results across the two metrics are extremely similar. For
+demonstration we show both cluster projections side by side; each displays the
+data on the two most significant principal components, so the full
+high-dimensional structure is not represented.
+\begin{figure}[t]
+  \centering
+  \begin{minipage}{0.48\columnwidth}
+    \includegraphics[width=\linewidth]{../results/euclidean/clusters.png}
+  \end{minipage}\hfill
+  \begin{minipage}{0.48\columnwidth}
+    \includegraphics[width=\linewidth]{../results/mahalanobis/clusters.png}
+  \end{minipage}
+  \caption{Cluster projections: Euclidean (left) and Mahalanobis (right).}
+\end{figure}
+Some clusters are highly distinguished, but there are clear regions of
+confusion, with several groups of several centroids. The higher dimensionality
+leaves room for sharper distinctions, yet the results show that is not quite
+what happened. The confusion matrix's concentration in the four classes above
+roughly matches the number of centroid groups visible in the projection.
+
+\section{Euclidean vs.\ Mahalanobis}\label{sec:eucl-mahal}
+As discussed, there are very few differences in evaluation between the
+Euclidean and Mahalanobis metrics, possibly because most features are similar in
+scale to one another. The discussion below holds the sample (3{,}730 points),
+$k$ ($=10$), the random seed, and the restart budget ($n_{\text{init}}=50$)
+fixed; only the distance changes. Features are used in their fixed CSV column
+order (the 39 numeric columns), and the diagonal weights are applied positionally
+to that order.
+
+Most features were already similar in scale and variance, but a few had large
+skew and variance, which is a good reason to use a Mahalanobis metric. Applying
+the Mahalanobis metric effectively reduces the feature variance, lowering the
+chance that highly variable features dominate the clustering. Our simplified
+(diagonal) Mahalanobis metric does not, however, account greatly for skew, which
+motivates the additional per-feature scaling below.
+
+We introduce an additional level of processing by damping six outlier-heavy
+features. The table below describes their distributions: we see some very high
+maximum $|z|$ values and heavily skewed data. $c_f$ is the damping factor
+applied to each feature.
+\begin{table}[t]
+  \centering
+  \caption{Damping factors $c_f$ and distribution statistics of the six damped features.}
+  \begin{tabular}{lccc}
+    \toprule
+    Feature & $c_f$ & $z$-skew & max $|z|$ \\
+    \midrule
+    stcpb, dtcpb & 0.05 & 1.2 / 1.2 & 2.5 / 2.6 \\
+    sbytes & 0.30 & 27.9 & 34.0 \\
+    rate & 0.10 & 3.2 & 4.9 \\
+    sload & 0.10 & 5.4 & 14.0 \\
+    dload & 0.20 & 8.6 & 12.4 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+An important consideration is that, because we scale these features down, we
+obtain inherently better within-geometry silhouette scores, and some other
+evaluations will look better. This is not evidence of a better clustering: a
+K-means partition is compact in its own metric by construction, so a
+within-geometry silhouette gain is tautological and is not counted as an
+improvement. We have no held-out data to measure generalization, but the damping
+is a reasonable way to reduce outlier-driven distortion.
+
+\section{Conclusion}
+It is important to remember that no non-training data was used for evaluation and
+only a fraction of the original dataset was used. While the principal-component
+visualization suggests clear shapes for some clusters, there could be
+differences unaccounted for that would appear if the rest of the dataset had been
+included in evaluation or training.
 \end{document}
