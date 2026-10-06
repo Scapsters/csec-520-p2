@@ -34,7 +34,15 @@ def load_data(cfg: dict):
         class_names = list(ds.target_names)
 
     elif source == "csv":
-        df = pd.read_csv(d["csv_path"])
+        import os
+        csv_path = d["csv_path"]
+        if not os.path.exists(csv_path):
+            raise FileNotFoundError(
+                f"CSV dataset {csv_path!r} not found. Run `make data` to download "
+                f"and checksum-verify it (see data/README.md), or extract the course "
+                f"Drive training CSV to that path before running `make reproduce`."
+            )
+        df = pd.read_csv(csv_path)
 
         for col in d.get("drop_columns") or []:
             if col in df.columns:

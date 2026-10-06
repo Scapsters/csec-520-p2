@@ -1,0 +1,49 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\title{CSEC 520/620 -- Project 2: K-means from scratch on UNSW-NB15}
+\author{Scott Happy (sdh8796)}
+\date{}
+\begin{document}
+\maketitle
+
+% NOTE: The full, current report is maintained in \texttt{report/REPORT.md}.
+% This \LaTeX{} source is a stub so the submission is in IEEE-style \TeX{}.
+
+\section{Problem \& dataset}
+K-means clustering of UNSW-NB15 network-traffic features; \texttt{attack\_cat}
+used only for the class-balanced sample and evaluation, never as a clustering
+feature.
+
+\section{Implementation}
+Lloyd's algorithm implemented from scratch (\texttt{KMeansScratch}): k-means++
+seeding, nearest-centroid assignment, mean update (empty clusters kept in
+place), Frobenius-shift convergence at tol $10^{-4}$, 50 restarts keeping the
+lowest inertia. No library K-means call.
+
+\section{Choosing k}
+Silhouette (common Euclidean space) peaks at $k=10$ over a $2\ldots15$ sweep;
+elbow agrees; matches the 10 true classes. $k=10$ held fixed for both distances.
+
+\section{Evaluation}
+In-sample cluster agreement only: silhouette $\approx0.458$, V-measure
+$\approx0.28$, accuracy $\approx0.33$, macro-F1 $\approx0.25$. Labels are
+in-sample only; no held-out detection claim.
+
+\section{Euclidean vs.\ Mahalanobis}
+Primary criterion: common-Euclidean silhouette (plus V-measure/macro-F1).
+Diagonal $C$ damps six heavy-tailed features (z-skew 1.2--27.9; stcpb, dtcpb,
+rate, sload, dload, sbytes). A k-means partition is compact in its own metric by
+construction, so the configured-geometry silhouette gain
+($0.458\!\to\!0.483$) is tautological and is not counted as a win. On the
+predeclared common-space silhouette the result is flat ($0.458\!\to\!0.457$) and
+label-based scores are unchanged; a sensitivity sweep over the damping range
+confirms the conclusion is not an artifact of one hand-picked diagonal.
+Reference agreement $\approx1.0$ (ARI 0.90/1.00) at $n_{\text{init}}=50$.
+
+\section{Conclusion \& limitations}
+Per-feature re-weighting is a valid geometric extension but does not resolve the
+heavy overlap among the ten attack families. Class-balanced sample, in-sample
+metrics only, 39 of 45 columns used (string fields dropped), simplified diagonal
+ignores covariance.
+\end{document}

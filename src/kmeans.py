@@ -119,11 +119,12 @@ class KMeansScratch:
         if self.init == "kmeans++":
             centroids = [X[rng.integers(num_data_points)]]
             for _ in range(self.k - 1):
-                
                 distances = self._sqdist(X, np.array(centroids)).min(axis=1)
-                centroid = X[rng.choice(num_data_points, p=distances / distances.sum())]
-                
-                centroids.append(centroid)
+                if distances.sum() > 0:
+                    idx = rng.choice(num_data_points, p=distances / distances.sum())
+                else:  # every point coincides with a chosen centroid
+                    idx = rng.integers(num_data_points)
+                centroids.append(X[idx])
             return np.array(centroids)
         
         raise ValueError(f"unknown init {self.init!r}")
@@ -170,7 +171,7 @@ class KMeansScratch:
         Return ``self``.
         """
         rng = np.random.default_rng(self.seed)
-        best = (0, None, np.array([]), None)  # (inertia, centroids, labels, n_iter)
+        best = (np.inf, None, None, 0)  # (inertia, centroids, labels, n_iter)
 
         for _ in range(self.n_init):
             centroids = self._init_centroids(X, rng)
@@ -192,7 +193,7 @@ class KMeansScratch:
             distances = self._sqdist(X, centroids)
             inertia = float(distances[np.arange(X.shape[0]), labels].sum())
             
-            if best is None or inertia < best[0]:
+            if inertia < best[0]:
                 best = (inertia, centroids, labels, iteration)
 
         self.inertia_, self.centroids_, self.labels_, self.n_iter_ = (

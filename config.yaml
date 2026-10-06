@@ -1,28 +1,72 @@
 # Experiment configuration — edit this, not the code, to change a run.
+# Primary experiment: UNSW-NB15 training CSV (place at data/UNSW_NB15_training-set.csv).
 seed: 42
 
 data:
-  source: iris               # "iris" (default, no download) | "csv"
+  source: csv                # "iris" (debug) | "csv" (UNSW-NB15 deliverable)
   csv_path: data/UNSW_NB15_training-set.csv
-  target: attack_cat         # label column when source == csv
-  drop_columns: [id, label]  # non-feature columns to drop from the CSV
-  subsample: 4000            # cap rows (from-scratch K-means is O(n·k·d) per pass); null = all
+  target: attack_cat          # label column (EVALUATION ONLY, never a clustering feature)
+  drop_columns: [id, label]   # non-feature columns to drop from the CSV
+  subsample: 4000            # max rows; class-balanced -> 3730 (400/class except 130 Worms)
   standardize: true          # z-score features — important for distance-based methods
 
 kmeans:
-  implementation: sklearn    # "sklearn" = provided baseline | "scratch" = YOUR implementation
-  k: 3
+  implementation: scratch    # "sklearn" = provided baseline | "scratch" = YOUR implementation
+  k: 10                      # fixed across the Euclidean vs. Mahalanobis comparison (see report)
   init: kmeans++             # "kmeans++" | "random"
-  n_init: 10                 # random restarts; keep the lowest inertia
+  n_init: 50                 # random restarts; keep the lowest inertia (raised for reference agreement)
   max_iter: 300
   tol: 1.0e-4
   distance: euclidean        # "euclidean" | "mahalanobis"  (mahalanobis = scratch only)
-  mahalanobis_diag: null     # positive diagonal C, e.g. [2.0, 1.0, 0.5, 1.0]; null = all ones
+  # Positive diagonal C, in FINAL feature order (length = 39 after dropping
+  # id/label/attack_cat and the 3 string columns). All 1 except six
+  # high-variance / bandwidth-dominated features, which are damped so the
+  # geometry reflects within-group structure rather than raw scale.
+  mahalanobis_diag:
+    - 1      # dur
+    - 1      # spkts
+    - 1      # dpkts
+    - 0.3    # sbytes
+    - 1      # dbytes
+    - 0.1    # rate
+    - 1      # sttl
+    - 1      # dttl
+    - 0.1    # sload
+    - 0.2    # dload
+    - 1      # sloss
+    - 1      # dloss
+    - 1      # sinpkt
+    - 1      # dinpkt
+    - 1      # sjit
+    - 1      # djit
+    - 1      # swin
+    - 0.05   # stcpb
+    - 0.05   # dtcpb
+    - 1      # dwin
+    - 1      # tcprtt
+    - 1      # synack
+    - 1      # ackdat
+    - 1      # smean
+    - 1      # dmean
+    - 1      # trans_depth
+    - 1      # response_body_len
+    - 1      # ct_srv_src
+    - 1      # ct_state_ttl
+    - 1      # ct_dst_ltm
+    - 1      # ct_src_dport_ltm
+    - 1      # ct_dst_sport_ltm
+    - 1      # ct_dst_src_ltm
+    - 1      # is_ftp_login
+    - 1      # ct_ftp_cmd
+    - 1      # ct_flw_http_mthd
+    - 1      # ct_src_ltm
+    - 1      # ct_srv_dst
+    - 1      # is_sm_ips_ports
 
 selection:                   # k-sweep for the elbow / silhouette figure
   silhouette_geometry: euclidean  # common space for k selection; or configured
   k_min: 2
-  k_max: 8
+  k_max: 15
 
 compare_to_reference: true   # when implementation=scratch, also run sklearn and report agreement
 
