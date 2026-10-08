@@ -89,3 +89,5 @@ multi-modal data.
 Per the syllabus policy, an AI assistant was used to help debug and guide myself during implementation of Lloyd's algorithm, and was used in the following sections of the report:
 - Implementation
 These sections did not provide a substantial ability for me to express desired learning objectives. I believe my implementation is self-documenting (and also is just plainly documented).
+
+I used AI to "grade" my assignment to find small inconstistencies. These are contained in the final commits.

@@ -225,10 +225,10 @@ chance that highly variable features dominate the clustering. Our simplified
 (diagonal) Mahalanobis metric does not, however, account greatly for skew, which
 motivates the additional per-feature scaling below.
 
-We introduce an additional level of processing by damping six outlier-heavy
-features. The table below describes their distributions: we see some very high
-maximum $|z|$ values and heavily skewed data. $c_f$ is the damping factor
-applied to each feature.
+We introduce an additional level of processing by damping the six
+bandwidth-dominated features (the byte, rate, and load columns). The table below
+describes their distributions so the reader can check each one's scale; $c_f$ is
+the damping factor applied to each feature.
 \begin{table}[t]
   \centering
   \caption{Damping factors $c_f$ and distribution statistics of the six damped features.}
@@ -244,6 +244,12 @@ applied to each feature.
     \bottomrule
   \end{tabular}
 \end{table}
+
+The factors are a judgment, not a monotonic rule applied to the table's
+statistics: each value reflects how strongly that column's raw magnitude would
+otherwise dominate the geometry, so their ordering need not follow skew or
+maximum $|z|$. We report those statistics to document the scale of the damped
+columns, not because the factors are derived from them.
 
 An important consideration is that, because we scale these features down, we
 obtain inherently better within-geometry silhouette scores, and some other
