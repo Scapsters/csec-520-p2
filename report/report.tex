@@ -83,7 +83,7 @@ calculation, discussed below. Results can be reproduced with the
     residual in Section~\ref{sec:eucl-mahal}). An absolute shift test is well
     scaled here because the z-standardized features are unit-variance, so
     centroid magnitudes are $O(1)$.
-  \item \textbf{Restarts}: $n_{\text{init}} = 50$ restarts; the restart with the
+  \item \textbf{Restarts}: $n_{\mathrm{init}} = 50$ restarts; the restart with the
     lowest inertia is kept (raised from 10 to 50 to improve reference agreement
     on this high-dimensional, multi-modal dataset; see
     Section~\ref{sec:eucl-mahal}).
@@ -213,7 +213,7 @@ roughly matches the number of centroid groups visible in the projection.
 As discussed, there are very few differences in evaluation between the
 Euclidean and Mahalanobis metrics, possibly because most features are similar in
 scale to one another. The discussion below holds the sample (3{,}730 points),
-$k$ ($=10$), the random seed, and the restart budget ($n_{\text{init}}=50$)
+$k$ ($=10$), the random seed, and the restart budget ($n_{\mathrm{init}}=50$)
 fixed; only the distance changes. Features are used in their fixed CSV column
 order (the 39 numeric columns), and the diagonal weights are applied positionally
 to that order.
