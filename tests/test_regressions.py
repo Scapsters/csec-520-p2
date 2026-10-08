@@ -6,6 +6,7 @@ import pytest
 import yaml
 from grading import grade
 from src.data import load_data
+from src import reproduce
 from src.cluster import main
 from src.evaluate import save_confusion_matrix
 
@@ -85,3 +86,28 @@ def test_unusable_csv_features(tmp_path, values, message):
     pd.DataFrame({'x': values, 'target': ['a', 'b'] * 3}).to_csv(path, index=False)
     with pytest.raises(ValueError, match=message):
         load_data({'seed': 42, 'data': {'source': 'csv', 'csv_path': str(path), 'target': 'target'}})
+
+
+def test_missing_csv_falls_back_to_bundled_iris(tmp_path, capsys):
+    """A fresh checkout has no git-ignored CSV; `make reproduce` must still complete by
+    switching the run to the bundled Iris dataset (no download) rather than failing."""
+    cfg = {
+        'seed': 42,
+        'data': {'source': 'csv', 'csv_path': str(tmp_path / 'missing.csv'),
+                 'target': 'attack_cat', 'drop_columns': ['id', 'label'],
+                 'subsample': 4000, 'standardize': True},
+        'kmeans': {'implementation': 'scratch', 'k': 3, 'init': 'kmeans++',
+                   'n_init': 2, 'max_iter': 100, 'tol': 1e-4, 'distance': 'euclidean',
+                   'mahalanobis_diag': [1.0] * 39},  # 39-weight UNSW diag, ignored for Iris
+        'selection': {'silhouette_geometry': 'euclidean', 'k_min': 2, 'k_max': 5},
+        'compare_to_reference': True,
+        'output': {'dir': str(tmp_path / 'out')},
+    }
+    config = tmp_path / 'config.yaml'
+    config.write_text(yaml.safe_dump(cfg))
+    summary = reproduce.main(str(config))
+    out = tmp_path / 'out'
+    for sub in ('', 'euclidean', 'mahalanobis'):
+        assert (out / sub / 'metrics.json').stat().st_size > 0
+    assert summary['runs']['euclidean']['n_features'] == 4
+    assert 'bundled Iris dataset' in capsys.readouterr().err

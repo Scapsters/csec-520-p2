@@ -2,14 +2,36 @@
 import argparse
 import copy
 import json
+import sys
 from pathlib import Path
 import yaml
 from .data import load_data
 from .cluster import run_experiment
 
 
+def _fallback_to_iris_if_csv_missing(cfg):
+    """`make reproduce` must not download data, and a fresh checkout does not contain
+    the git-ignored UNSW CSV. When the config points at a CSV that is not present, run
+    this invocation on the bundled Iris dataset (the shipped default) with identity
+    Mahalanobis weights so the one-command run still completes end to end. A CSV that
+    is present is always used unchanged."""
+    d = cfg.get('data') or {}
+    if d.get('source') != 'csv':
+        return cfg
+    csv_path = d.get('csv_path')
+    if csv_path and Path(csv_path).exists():
+        return cfg
+    sys.stderr.write(
+        '[reproduce] {} not found (git-ignored; run `make data` to download it). '
+        'Running this invocation on the bundled Iris dataset instead.\n'.format(csv_path))
+    d['source'] = 'iris'
+    cfg.setdefault('kmeans', {})['mahalanobis_diag'] = None
+    return cfg
+
+
 def main(config_path='config.yaml', output_dir=None):
     cfg = yaml.safe_load(Path(config_path).read_text())
+    cfg = _fallback_to_iris_if_csv_missing(cfg)
     out = Path(output_dir or cfg['output']['dir'])
     out.mkdir(parents=True, exist_ok=True)
     # An interrupted run must not leave an old aggregate that looks successful.
